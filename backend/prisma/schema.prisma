@@ -1,0 +1,406 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ── Enums ──────────────────────────────────────────────────────
+
+enum UserRole {
+  STUDENT
+  TEACHER
+  ADMIN
+}
+
+enum AssignmentType {
+  ESSAY
+  QUIZ
+  EXAM
+}
+
+enum QuestionType {
+  MULTIPLE_CHOICE
+  TRUE_FALSE
+  CHECKBOXES
+  SHORT_ANSWER
+  PARAGRAPH
+  FILE_UPLOAD
+}
+
+enum GradeStatus {
+  AUTO_GRADED
+  PARTIAL
+  PENDING_MANUAL
+  COMPLETE
+  AI_PENDING
+  AI_GRADED
+  PROCESSING_AI
+  TEACHER_REVIEWED
+}
+
+enum ReleaseMode {
+  BATCH
+  ROLLING
+}
+
+enum ContestStatus {
+  PENDING
+  UNDER_REVIEW
+  RESOLVED_UPHELD
+  RESOLVED_ADJUSTED
+}
+
+enum ReviewAction {
+  ACCEPT
+  MODIFY
+  REJECT
+  SKIP
+}
+
+enum JobStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  RETRYING
+  CANCELLED
+}
+
+enum EnrollmentStatus {
+  PENDING
+  ACTIVE
+  DROPPED
+}
+
+enum SubmissionStatus {
+  DRAFT
+  SUBMITTED
+  GRADED
+  LATE
+}
+
+enum AssignmentEvalMode {
+  ESSAY
+  SHORT_ANSWER
+  CODING_TASK
+  REFLECTION
+  CASE_STUDY
+  RESEARCH_SUMMARY
+  CREATIVE_WRITING
+  LAB_REPORT
+  COMPARATIVE_ESSAY
+  PERSUASIVE_WRITING
+  POETRY_RESPONSE
+  RESEARCH_OUTLINE
+  PEER_REVIEW
+  ANNOTATED_BIBLIOGRAPHY
+  MATH_PROOF
+  MULTILINGUAL
+  DEFAULT
+}
+
+// ── Models ─────────────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  firstName    String
+  lastName     String
+  role         UserRole
+  avatar       String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  courses     Course[]
+  enrollments Enrollment[]
+  submissions Submission[]
+  grades      Grade[]        @relation("grader")
+  notifications Notification[]
+}
+
+model Course {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  teacherId   String
+  teacher     User     @relation(fields: [teacherId], references: [id])
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  assignments Assignment[]
+  enrollments Enrollment[]
+}
+
+model Enrollment {
+  id        String           @id @default(cuid())
+  userId    String
+  courseId   String
+  status    EnrollmentStatus @default(ACTIVE)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, courseId])
+}
+
+model Assignment {
+  id          String         @id @default(cuid())
+  title       String
+  description String
+  type        AssignmentType
+  courseId     String
+  course      Course         @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  maxPoints   Int
+  dueDate     DateTime
+  isActive    Boolean        @default(true)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  // AI grading settings
+  aiGradingEnabled      Boolean             @default(false)
+  aiDataConsent         Boolean             @default(false)
+  aiEvaluationMode      AssignmentEvalMode?
+  aiGradingInstructions String?
+
+  // Release settings
+  releaseMode        ReleaseMode @default(BATCH)
+  gradesReleasedAt   DateTime?
+  gradesReleasedBy   String?
+  contestsAllowed    Int         @default(1)
+  contestDeadlineDays Int?
+
+  questions   Question[]
+  submissions Submission[]
+  rubric      Rubric?
+}
+
+model Question {
+  id             String       @id @default(cuid())
+  assignmentId   String
+  assignment     Assignment   @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  text           String
+  type           QuestionType
+  options        Json?
+  correctAnswers String[]
+  points         Int          @default(1)
+  order          Int          @default(0)
+  caseSensitive  Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  answers Answer[]
+}
+
+model Submission {
+  id           String           @id @default(cuid())
+  userId       String
+  user         User             @relation(fields: [userId], references: [id])
+  assignmentId String
+  assignment   Assignment       @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  content      String?
+  status       SubmissionStatus @default(DRAFT)
+  submittedAt  DateTime         @default(now())
+  startedAt    DateTime?
+  detectedLanguage String?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  answers     Answer[]
+  grade       Grade?
+  preGradeJob PreGradeJob?
+
+  @@unique([userId, assignmentId])
+}
+
+model Answer {
+  id           String    @id @default(cuid())
+  submissionId String
+  submission   Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  questionId   String
+  question     Question  @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  answerValue  String
+  isCorrect    Boolean?
+  pointsAwarded Int?
+  feedback     String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@unique([submissionId, questionId])
+}
+
+model Rubric {
+  id           String   @id @default(cuid())
+  assignmentId String   @unique
+  assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  title        String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  criteria RubricCriterion[]
+}
+
+model RubricCriterion {
+  id          String @id @default(cuid())
+  rubricId    String
+  rubric      Rubric @relation(fields: [rubricId], references: [id], onDelete: Cascade)
+  title       String
+  description String
+  maxPoints   Int
+  order       Int    @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  rubricScores RubricScore[]
+}
+
+model Grade {
+  id           String      @id @default(cuid())
+  submissionId String      @unique
+  submission   Submission  @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  graderId     String
+  grader       User        @relation("grader", fields: [graderId], references: [id])
+  points       Int         @default(0)
+  maxPoints    Int         @default(0)
+  feedback     String      @default("")
+  status       GradeStatus @default(PENDING_MANUAL)
+  gradedAt     DateTime    @default(now())
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  // Auto-grade fields (quiz)
+  autoPoints   Int?
+  manualPoints Int?
+
+  // AI pre-grade fields
+  aiRawResponse      Json?
+  aiOverallComments  String?
+  aiModelUsed        String?
+  aiPromptVersion    String?
+  aiGradedAt         DateTime?
+  aiFlags            String[]   @default([])
+  aiTokensUsed       Int?
+  aiProcessingMs     Int?
+
+  // Teacher review fields
+  teacherAgreementRate Float?
+  teacherReviewedAt    DateTime?
+  teacherReviewMs      Int?
+  teacherConfirmedAt   DateTime?
+  teacherConfirmedBy   String?
+
+  // Release
+  releasedToStudentAt DateTime?
+
+  rubricScores RubricScore[]
+  history      GradeHistory[]
+  contests     GradeContest[]
+}
+
+model RubricScore {
+  id          String          @id @default(cuid())
+  gradeId     String
+  grade       Grade           @relation(fields: [gradeId], references: [id], onDelete: Cascade)
+  criterionId String
+  criterion   RubricCriterion @relation(fields: [criterionId], references: [id], onDelete: Cascade)
+  points      Int             @default(0)
+  feedback    String          @default("")
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  // AI suggestion fields
+  aiSuggestedPoints   Int?
+  aiSuggestedFeedback String?
+  aiConfidence        Float?
+  aiKeyEvidence       String[] @default([])
+
+  // Teacher review fields
+  teacherOverrode       Boolean       @default(false)
+  teacherReviewAction   ReviewAction?
+  teacherOverrideReason String?
+
+  @@unique([gradeId, criterionId])
+}
+
+model PreGradeJob {
+  id           String    @id @default(cuid())
+  submissionId String    @unique
+  submission   Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  status       JobStatus @default(PENDING)
+  attempts     Int       @default(0)
+  workerVersion String?
+  promptHash   String?
+  tokensInput  Int?
+  tokensOutput Int?
+  errorMessage String?
+  errorCode    String?
+  startedAt    DateTime?
+  completedAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+model GradeHistory {
+  id               String   @id @default(cuid())
+  submissionId     String
+  previousPoints   Int
+  newPoints        Int
+  previousFeedback String
+  newFeedback      String
+  previousStatus   String
+  newStatus        String
+  changedBy        String
+  changeReason     String?
+  createdAt        DateTime @default(now())
+
+  grade Grade? @relation(fields: [submissionId], references: [submissionId])
+}
+
+model GradeContest {
+  id           String        @id @default(cuid())
+  gradeId      String
+  grade        Grade         @relation(fields: [gradeId], references: [id], onDelete: Cascade)
+  studentId    String
+  reason       String
+  status       ContestStatus @default(PENDING)
+  teacherNotes String?
+  resolvedAt   DateTime?
+  resolvedBy   String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
+model AiDataAuditLog {
+  id                 String   @id @default(cuid())
+  submissionId       String
+  institutionId      String?
+  dataCategories     String[]
+  piiStripped        Boolean
+  provider           String
+  providerModel      String
+  legalBasis         String
+  consentRecordId    String?
+  retentionPolicy    String
+  retentionExpiresAt DateTime?
+  sentAt             DateTime @default(now())
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String
+  title     String
+  message   String
+  data      Json?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}

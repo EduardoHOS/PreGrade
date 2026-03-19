@@ -1,0 +1,17 @@
+{
+  "name": "pregrade",
+  "version": "1.0.0",
+  "private": true,
+  "description": "AI Pre-Grading Demo — Automated essay and quiz grading with teacher review",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "install:all": "cd backend && npm install && cd ../frontend && npm install",
+    "db:push": "cd backend && npx prisma db push",
+    "db:seed": "cd backend && npx prisma db seed"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
