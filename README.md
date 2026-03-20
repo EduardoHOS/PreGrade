@@ -47,6 +47,19 @@ npm run dev
 
 Open **http://localhost:5173**
 
+## Demo Video
+
+[![PreGrade Demo](https://img.youtube.com/vi/mY4pVONYops/maxresdefault.jpg)](https://youtu.be/mY4pVONYops)
+
+**Watch the full demo (< 5 min):** https://youtu.be/mY4pVONYops
+
+> No AI media tools (voiceover, avatars, etc.) were used in the production of this video.
+
+## Slide Decks
+
+- **Pitch Deck (11-15 slides):** [View on Canva](https://www.canva.com/design/DAHEbZUorng/pZUfioYNMBSnJxf0yGoYGw/edit?utm_content=DAHEbZUorng&utm_campaign=designshare&utm_medium=link2&utm_source=sharebutton)
+- **10-Layer Architecture Slides:** [View on Canva](https://www.canva.com/design/DAHB39GGdPQ/0qYs0MR0SFqGPQmWtlWQYQ/edit?utm_content=DAHB39GGdPQ&utm_campaign=designshare&utm_medium=link2&utm_source=sharebutton)
+
 ## Demo Accounts
 
 | Role | Email | Password |
